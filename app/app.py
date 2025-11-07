@@ -218,7 +218,7 @@ def login():
                         'username': username,
                         **user_data
                     }
-                    print(f"✅ Login successful for user: {username}")
+                    print(f"✅ Login successful for you: {username}")
                     return jsonify({'success': True, 'message': 'Login successful'})
             
             print(f"❌ Invalid login for user: {username}")
