@@ -15,8 +15,8 @@ app.secret_key = 'ai-meal-planner-secret-key-2024'
 CORS(app)
 
 # ---------------- CONFIGURATION ---------------- #
-FIREBASE_CONFIG_PATH = os.environ.get('FIREBASE_CONFIG_PATH', 'firebase_key.json')
-GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+FIREBASE_CONFIG_PATH = 'app/mock_firebase.json'
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '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')
 if not GROQ_API_KEY:
     raise ValueError('GROQ_API_KEY environment variable is required')
 
@@ -91,6 +91,7 @@ class MockSnapshot:
 print("🔄 Initializing database...")
 try:
     if not firebase_admin._apps:
+        print(FIREBASE_CONFIG_PATH)
         if os.path.exists(FIREBASE_CONFIG_PATH):
             cred = credentials.Certificate(FIREBASE_CONFIG_PATH)
             firebase_admin.initialize_app(cred)
