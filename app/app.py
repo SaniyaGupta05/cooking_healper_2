@@ -11,110 +11,22 @@ import os
 import random
 
 app = Flask(__name__)
-app.secret_key = 'ai-meal-planner-secret-key-2024'
+app.secret_key = 'ai-meal-planner-secret-key-2024'  # Change this in production
 CORS(app)
 
 # ---------------- CONFIGURATION ---------------- #
-FIREBASE_CONFIG_PATH = {
-  "type": "service_account",
-  "project_id": "recipe-app-8caa9",
-  "private_key_id": "eeda4716d0c87f347ae9ffdb6fbd845e193cc583",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDhp0gzJj7DjOCm\njJ3fOoDXxx3kA2ywI1l8pg9FVDEVGyttMSZ4c4FbsruY1oA7Pall+Y/MnnwI9uSC\ndGPd6BE66M+/E7xS1pYsM7kcNLyPFjoVXZ5WejsF72MI63xj8Mh7ikAQOAuVXpqa\nFZ2xCDlqgHbQd89pXQIYwluZG919pVqnEUEY045FRfMfGlpqehjtCUAwqfxAEvaZ\nvOeIV8LF0eW4d9gDpocafottYcQ6LtgQmGg2fXrtsF6hLUfZ6FRTLNhiQohc3RhX\nHny9QcQUuDlDprGy4ISeT39IIJ+LvLkLSORSDtTGpGIilkYtFYn0kbse8Iek0Nm9\nJguk9HvPAgMBAAECggEAA6aYsopaXQCQ++QHg9gm9uOLHMH5BrDm628/82YYZ/6C\n1kC20VKqrTVrKpH1DI0dVsyFIpFBcXjitPRo6NF7dRTVYGjtB/jeM7d5T1CdG/WH\nAArkaALECxijftfy5CakbIQNyeIv2DCDimpyHPsElTAGr0dY82i+HKQ8WVhL95Kz\nz6z7BGaKvgML24PDJcymGwfLMsgikY2epxpixFla99Xjsrplh5BZIcA1WrkY+y6T\nklU4Xhzw+y1PyOPTJAWZlMa8PNRwBNlGYbznB4CzSS/XazvG4xnhZP4mnMyJXSt0\nc3jbJCbRzvY989uPB9dZBXsjVHmBgNMarVaNZdFrNQKBgQD1c1+tPOQFDzuCiD1f\nEHnDaQDQRvvveWVDtVJlX/OwPPOYVzPXHEJqNaVZn6yce9QPaTVxLlKqhVQDiGRT\nJokrE1hlRxBt0Jkr58YNVADdJ2UHiNF346CgA1qMiI5PvWpHb4SqQnPlV2XDbi4s\nZNLsVUMwrCGYMlgqCXDbBRcXfQKBgQDrWhW0dU8WiaeTuniTWRWtHZbz8E+7GXKF\nKGWEkFNu1vwcs4ByS04FpLZBuycEkg93JB32AoPucEHzkQU2UCddBSGu62umx7vX\nCkgxspJwgNbBDie+0yUFi1lKNd2me1WNqEusCx+2oMCDAvHYfyIHuo0Ydgj1f/2G\n3TRS/Rr6OwKBgQC2eYl9rzENmd9yEXseu47qeZvDO6J8zFE+XwTcnNL8CLRIYzwF\nBdtSPoOo945J370tn9e9RuTqJKjq33FGZ/W98mnbEVPjcBsPiwWwTu09fNYdHdgs\nOyvlCdk9dR/npDfo171XHoQu0iSzf6wQEPzF+jUzcCShk3v79HzUNxqNuQKBgCLl\nH3S7M/e+fzc7HaeTPNCHI5uVlOzD0CQIIk0ubQBxJb5HqxLHMZFKo69JRXa7BUn/\n8+VG6DLROCYZ6XDtH3j+Ssk5pKN819ABeUTNGkNOBwlmxOPZQJL630lOhUeq37t6\nKYYfvBsC6KhEJoGYD/6fXU40Kg3kZT26zIhFeNuDAoGAUn3Z8Xx1trHtdrtZmz+1\nH76cVW/6+O61dndW8J3IRfyNklNhdTDIeoWhR1Iw4T107b64zLV9etMWPp2aEvs0\ndbu1Jkz0GD7oACLnB4PD63IDhkNk42RP+Z4394gfL9vRBF3CN62KRVKMZkxvIZDT\nL2VSE40ZN0bUbztIUXpX410=\n-----END PRIVATE KEY-----\n",
-  "client_email": "firebase-adminsdk-fbsvc@recipe-app-8caa9.iam.gserviceaccount.com",
-  "client_id": "104453835710014648130",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40recipe-app-8caa9.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-}
+FIREBASE_CONFIG_PATH = r"C:\Users\SANIYA GUPTA\OneDrive\7th sem\MEAL PLANNER\firebase_key.json"
+GROQ_API_KEY = "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"
 
-GROQ_API_KEY = os.getenv('GROQ_API_KEY', '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')
-if not GROQ_API_KEY:
-    raise ValueError('GROQ_API_KEY environment variable is required')
-
-# ---------------- MOCK DATABASE IMPLEMENTATION ---------------- #
-class MockDB:
-    def __init__(self):
-        self.users = {}
-        self.ingredients = {}
-        print("✅ Mock database initialized")
-    
-    def collection(self, name):
-        return MockCollection(self, name)
-
-class MockCollection:
-    def __init__(self, db, name):
-        self.db = db
-        self.name = name
-    
-    def document(self, doc_id):
-        return MockDocument(self.db, self.name, doc_id)
-    
-    def stream(self):
-        return iter([])
-
-class MockDocument:
-    def __init__(self, db, collection, doc_id):
-        self.db = db
-        self.collection = collection
-        self.doc_id = doc_id
-    
-    def get(self):
-        return MockSnapshot(self.db, self.collection, self.doc_id)
-    
-    def set(self, data):
-        if self.collection == "users":
-            self.db.users[self.doc_id] = data
-            print(f"📝 MockDB: Created user {self.doc_id}")
-        elif self.collection == "ingredients":
-            if self.doc_id not in self.db.ingredients:
-                self.db.ingredients[self.doc_id] = {}
-            self.db.ingredients[self.doc_id].update(data)
-            print(f"📝 MockDB: Updated ingredient {self.doc_id}")
-        return None
-    
-    def delete(self):
-        if self.collection == "ingredients" and self.doc_id in self.db.ingredients:
-            del self.db.ingredients[self.doc_id]
-            print(f"🗑️ MockDB: Deleted ingredient {self.doc_id}")
-        return None
-
-class MockSnapshot:
-    def __init__(self, db, collection, doc_id):
-        self.db = db
-        self.collection = collection
-        self.doc_id = doc_id
-    
-    def exists(self):
-        if self.collection == "users":
-            return self.doc_id in self.db.users
-        elif self.collection == "ingredients":
-            return self.doc_id in self.db.ingredients
-        return False
-    
-    def to_dict(self):
-        if self.collection == "users" and self.doc_id in self.db.users:
-            return self.db.users[self.doc_id]
-        elif self.collection == "ingredients" and self.doc_id in self.db.ingredients:
-            return self.db.ingredients[self.doc_id]
-        return {}
-
-# ---------------- DATABASE INITIALIZATION ---------------- #
-print("🔄 Initializing database...")
+# ---------------- FIREBASE INIT ---------------- #
 try:
     if not firebase_admin._apps:
-            cred = credentials.Certificate(FIREBASE_CONFIG_PATH)
-            firebase_admin.initialize_app(cred)
-            print("✅ Firebase initialized successfully")
-    
+        cred = credentials.Certificate(FIREBASE_CONFIG_PATH)
+        firebase_admin.initialize_app(cred)
     db = firestore.client()
-    print("✅ Using Firebase database")
-    
+    print("✅ Firebase initialized successfully")
 except Exception as e:
     print(f"❌ Firebase initialization failed: {e}")
-    print("🔄 Using mock database for local development...")
-    db = MockDB()
 
 # ---------------- DIETARY PROFILES & CONFIG ---------------- #
 DIETARY_RESTRICTIONS = {
@@ -202,8 +114,6 @@ def login():
         username = data.get('username', '').strip()
         password = data.get('password', '')
         
-        print(f"🔍 Login attempt for user: {username}")
-        
         if not username or not password:
             return jsonify({'success': False, 'message': 'Username and password are required'})
         
@@ -218,14 +128,12 @@ def login():
                         'username': username,
                         **user_data
                     }
-                    print(f"✅ Login successful for you: {username}")
                     return jsonify({'success': True, 'message': 'Login successful'})
             
-            print(f"❌ Invalid login for user: {username}")
             return jsonify({'success': False, 'message': 'Invalid username or password'})
             
         except Exception as e:
-            print(f"❌ Login error: {e}")
+            print(f"Login error: {e}")
             return jsonify({'success': False, 'message': 'Login failed. Please try again.'})
     
     return render_template('login.html')
@@ -240,8 +148,6 @@ def register():
         dietary_restrictions = data.get('dietary_restrictions', [])
         preferred_cuisines = data.get('preferred_cuisines', [])
         cooking_skill = data.get('cooking_skill', 'beginner')
-        
-        print(f"🔍 Registration attempt for user: {username}")
         
         try:
             if not username or not password:
@@ -265,12 +171,11 @@ def register():
             }
             
             user_ref.set(user_data)
-            print(f"✅ Registration successful for user: {username}")
             
             return jsonify({'success': True, 'message': 'Registration successful'})
             
         except Exception as e:
-            print(f"❌ Registration error: {e}")
+            print(f"Registration error: {e}")
             return jsonify({'success': False, 'message': 'Registration failed. Please try again.'})
     
     return render_template('register.html')
@@ -332,9 +237,23 @@ def get_dashboard_stats():
         ingredients_ref = db.collection("users").document(username).collection("ingredients")
         ingredients = list(ingredients_ref.stream())
         
+        # Calculate expiring items (simple implementation)
+        today = datetime.now()
+        expiring_count = 0
+        for ing in ingredients:
+            data = ing.to_dict()
+            expiry_date = data.get('expiry_date')
+            if expiry_date:
+                try:
+                    expiry = datetime.strptime(expiry_date, "%Y-%m-%d")
+                    if (expiry - today).days <= 2:
+                        expiring_count += 1
+                except ValueError:
+                    continue
+        
         stats = {
             'pantry_count': len(ingredients),
-            'expiring_count': 0,
+            'expiring_count': expiring_count,
             'recipes_tried': random.randint(5, 20),
             'days_streak': random.randint(1, 30)
         }
