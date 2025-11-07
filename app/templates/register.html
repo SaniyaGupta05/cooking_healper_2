@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>Create Account</h1>
+            <p>Join AI Meal Planner today</p>
+        </div>
+        
+        <form id="register-form">
+            <div class="form-group">
+                <label class="form-label" for="username">Username</label>
+                <input type="text" id="username" name="username" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" id="password" name="password" class="form-input" required>
+                <small style="color: var(--gray-light);">Password must be at least 6 characters</small>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="diet_type">Diet Type</label>
+                <select id="diet_type" name="diet_type" class="form-select" required>
+                    <option value="Pure Veg">Pure Vegetarian</option>
+                    <option value="Non-Veg">Non-Vegetarian</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Dietary Restrictions</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="dietary_restrictions" value="gluten_free">
+                        <span>Gluten Free</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="dietary_restrictions" value="dairy_free">
+                        <span>Dairy Free</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="dietary_restrictions" value="vegetarian">
+                        <span>Vegetarian</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="dietary_restrictions" value="vegan">
+                        <span>Vegan</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="dietary_restrictions" value="nut_free">
+                        <span>Nut Free</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Preferred Cuisines</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    {% for cuisine in ['Indian', 'Italian', 'Chinese', 'Mexican', 'Thai', 'Mediterranean', 'American', 'Japanese'] %}
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="preferred_cuisines" value="{{ cuisine }}">
+                        <span>{{ cuisine }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="cooking_skill">Cooking Skill Level</label>
+                <select id="cooking_skill" name="cooking_skill" class="form-select" required>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 1.5rem;">
+            <p style="color: var(--gray-light);">
+                Already have an account? 
+                <a href="{{ url_for('login') }}" style="color: var(--primary); text-decoration: none;">
+                    Sign in here
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

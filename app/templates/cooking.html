@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-utensil-spoon"></i>
+        <h2>Cooking Mode</h2>
+    </div>
+    <p>Enter a recipe name to start step-by-step cooking instructions.</p>
+    
+    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+        <input type="text" id="recipe-input" class="form-input" placeholder="Enter recipe name..." style="flex: 1;">
+        <button onclick="startCooking()" class="btn btn-primary">
+            <i class="fas fa-play"></i> Start Cooking
+        </button>
+    </div>
+</div>
+
+<div id="cooking-interface" style="display: none;">
+    <div class="grid grid-2">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-list"></i>
+                <h2>Ingredients</h2>
+            </div>
+            <div id="cooking-ingredients"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle"></i>
+                <h2>Recipe Info</h2>
+            </div>
+            <div id="cooking-info">
+                <p><strong>Total Time:</strong> <span id="total-time">-</span></p>
+                <p><strong>Difficulty:</strong> <span id="difficulty">-</span></p>
+                <p><strong>Servings:</strong> <span id="servings">-</span></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-list-ol"></i>
+            <h2>Cooking Steps</h2>
+        </div>
+        <div id="cooking-steps"></div>
+        
+        <div style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: center;">
+            <button id="prev-step" class="btn btn-outline" disabled>
+                <i class="fas fa-arrow-left"></i> Previous
+            </button>
+            <button id="next-step" class="btn btn-primary">
+                Next Step <i class="fas fa-arrow-right"></i>
+            </button>
+            <button id="finish-cooking" class="btn btn-secondary" style="display: none;">
+                <i class="fas fa-flag-checkered"></i> Finish Cooking
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentRecipe = null;
+let currentStep = 0;
+
+async function startCooking() {
+    const recipeName = document.getElementById('recipe-input').value;
+    if (!recipeName) {
+        showAlert('Please enter a recipe name', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/suggestions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ recipe_query: recipeName, detailed: true })
+        });
+        
+        const data = await response.json();
+        
+        if (data.suggestions) {
+            document.getElementById('cooking-interface').style.display = 'block';
+            document.getElementById('cooking-ingredients').innerHTML = `
+                <div class="suggestions-content">
+                    ${data.suggestions}
+                </div>
+            `;
+            
+            // Scroll to cooking interface
+            document.getElementById('cooking-interface').scrollIntoView({ behavior: 'smooth' });
+        }
+    } catch (error) {
+        showAlert('Failed to start cooking: ' + error.message, 'error');
+    }
+}
+
+// Add these event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('prev-step').addEventListener('click', previousStep);
+    document.getElementById('next-step').addEventListener('click', nextStep);
+    document.getElementById('finish-cooking').addEventListener('click', finishCooking);
+});
+
+function previousStep() {
+    if (currentStep > 0) {
+        currentStep--;
+        updateStepDisplay();
+    }
+}
+
+function nextStep() {
+    if (currentRecipe && currentStep < currentRecipe.steps.length - 1) {
+        currentStep++;
+        updateStepDisplay();
+    }
+}
+
+function finishCooking() {
+    showAlert('🎉 Congratulations! You completed the recipe!', 'success');
+    document.getElementById('cooking-interface').style.display = 'none';
+    document.getElementById('recipe-input').value = '';
+}
+
+function updateStepDisplay() {
+    // This would update the step display based on currentStep
+    // Implementation depends on the recipe data structure
+}
+</script>
+{% endblock %}

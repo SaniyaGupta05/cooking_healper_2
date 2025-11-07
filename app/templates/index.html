@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="hero">
+        <h1>🍳 AI Pantry-Based Meal Planner</h1>
+        <p>Get creative meal suggestions based on what's actually in your pantry!</p>
+        <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
+            <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </a>
+            <a href="{{ url_for('register') }}" class="btn btn-outline btn-lg">
+                <i class="fas fa-user-plus"></i> Sign Up
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-2">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-robot"></i>
+                <h2>🤖 AI-Powered Suggestions</h2>
+            </div>
+            <p>Get creative recipe ideas using Groq AI based on your actual pantry ingredients.</p>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-warehouse"></i>
+                <h2>📦 Smart Pantry Management</h2>
+            </div>
+            <p>Track your ingredients, get expiry alerts, and manage your kitchen inventory.</p>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-calendar"></i>
+                <h2>📅 Weekly Meal Plans</h2>
+            </div>
+            <p>Generate complete weekly meal plans tailored to your dietary preferences.</p>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-utensil-spoon"></i>
+                <h2>👨‍🍳 Step-by-Step Cooking</h2>
+            </div>
+            <p>Follow AI-generated cooking instructions with timers and helpful tips.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

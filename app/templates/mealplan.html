@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-calendar"></i>
+        <h2>Weekly Meal Plan</h2>
+    </div>
+    <p>Generate a complete 7-day meal plan based on your pantry ingredients and preferences.</p>
+    
+    <button id="generate-plan-btn" class="btn btn-primary btn-lg" style="margin-top: 1rem;">
+        <i class="fas fa-magic"></i> Generate Weekly Plan
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-list-alt"></i>
+        <h2>Your Meal Plan</h2>
+    </div>
+    
+    <div id="meal-plan-content" class="suggestions-content">
+        <p class="text-center" style="color: var(--gray-light);">
+            Your AI-generated weekly meal plan will appear here. Click the button above to generate.
+        </p>
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-shopping-cart"></i>
+            <h2>Shopping List</h2>
+        </div>
+        <div id="shopping-list">
+            <p class="text-center" style="color: var(--gray-light);">
+                Shopping list will be generated with your meal plan.
+            </p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-chart-pie"></i>
+            <h2>Nutrition Overview</h2>
+        </div>
+        <div id="nutrition-overview">
+            <p class="text-center" style="color: var(--gray-light);">
+                Nutrition information will appear with your meal plan.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

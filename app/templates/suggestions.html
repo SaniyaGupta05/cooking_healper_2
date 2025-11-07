@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-robot"></i>
+        <h2>AI Meal Suggestions</h2>
+    </div>
+    <p>Get personalized recipe suggestions based on your pantry ingredients and preferences.</p>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-filter"></i>
+            <h2>Filter Options</h2>
+        </div>
+        
+        <form id="suggestions-form">
+            <div class="form-group">
+                <label class="form-label" for="meal_type">Meal Type</label>
+                <select id="meal_type" name="meal_type" class="form-select">
+                    <option value="">Any Meal Type</option>
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                    <option value="snack">Snack</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="cuisine">Cuisine</label>
+                <select id="cuisine" name="cuisine" class="form-select">
+                    <option value="">Any Cuisine</option>
+                    <option value="Indian">Indian</option>
+                    <option value="Italian">Italian</option>
+                    <option value="Chinese">Chinese</option>
+                    <option value="Mexican">Mexican</option>
+                    <option value="Thai">Thai</option>
+                    <option value="Mediterranean">Mediterranean</option>
+                </select>
+            </div>
+            
+            <button type="submit" id="get-suggestions-btn" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-lightbulb"></i> Get Suggestions
+            </button>
+        </form>
+        
+        <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+            <h4 style="color: var(--secondary); margin-bottom: 0.5rem;">
+                <i class="fas fa-info-circle"></i> How it works
+            </h4>
+            <p style="color: var(--gray-light); font-size: 0.9rem; margin: 0;">
+                AI analyzes your pantry ingredients and creates recipe suggestions using what you already have. 
+                It considers your dietary restrictions and preferences.
+            </p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-utensils"></i>
+            <h2>Suggested Recipes</h2>
+        </div>
+        
+        <div id="suggestions-content" class="suggestions-content">
+            <p class="text-center" style="color: var(--gray-light);">
+                Select filters and click "Get Suggestions" to see AI-generated recipes based on your pantry.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-search"></i>
+        <h2>Quick Recipe Search</h2>
+    </div>
+    
+    <div style="display: flex; gap: 1rem;">
+        <input type="text" id="quick-recipe-search" class="form-input" placeholder="Search for a specific recipe...">
+        <button onclick="searchRecipe()" class="btn btn-secondary">
+            <i class="fas fa-search"></i> Search
+        </button>
+    </div>
+    
+    <div id="quick-recipe-result" style="margin-top: 1rem;"></div>
+</div>
+
+<script>
+async function searchRecipe() {
+    const query = document.getElementById('quick-recipe-search').value;
+    if (!query) return;
+    
+    const button = document.querySelector('#get-suggestions-btn');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<div class="loading"></div>';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch('/api/suggestions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ recipe_query: query })
+        });
+        
+        const data = await response.json();
+        
+        if (data.suggestions) {
+            document.getElementById('quick-recipe-result').innerHTML = `
+                <div class="suggestions-content">
+                    <h3>${query}</h3>
+                    ${data.suggestions}
+                </div>
+            `;
+        }
+    } catch (error) {
+        showAlert('Search failed: ' + error.message, 'error');
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+</script>
+{% endblock %}

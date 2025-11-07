@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-plus-circle"></i>
+            <h2>Add Ingredients</h2>
+        </div>
+        
+        <form id="add-ingredient-form">
+            <div class="form-group">
+                <label class="form-label" for="name">Ingredient Name</label>
+                <input type="text" id="name" name="name" class="form-input" placeholder="e.g., Tomatoes, Rice, Chicken" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="quantity">Quantity</label>
+                <input type="number" id="quantity" name="quantity" class="form-input" step="0.1" min="0.1" value="1" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="unit">Unit</label>
+                <select id="unit" name="unit" class="form-select" required>
+                    <option value="units">Units</option>
+                    <option value="kg">Kilograms</option>
+                    <option value="g">Grams</option>
+                    <option value="l">Liters</option>
+                    <option value="ml">Milliliters</option>
+                    <option value="cup">Cups</option>
+                    <option value="tbsp">Tablespoons</option>
+                    <option value="tsp">Teaspoons</option>
+                    <option value="bunch">Bunch</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="storage_method">Storage Method</label>
+                <select id="storage_method" name="storage_method" class="form-select" required>
+                    <option value="pantry">Pantry</option>
+                    <option value="fridge">Refrigerator</option>
+                    <option value="freezer">Freezer</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-plus"></i> Add to Pantry
+            </button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-warehouse"></i>
+            <h2>Your Pantry</h2>
+        </div>
+        
+        <div id="pantry-items">
+            <p class="text-center">Loading your pantry items...</p>
+        </div>
+        
+        <div style="margin-top: 1rem; text-align: center;">
+            <small style="color: var(--gray-light);">
+                <i class="fas fa-info-circle"></i>
+                Items are automatically sorted by expiry date
+            </small>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h2>Expiring Soon</h2>
+    </div>
+    <div id="expiring-items">
+        <p class="text-center">No items expiring soon.</p>
+    </div>
+</div>
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-bolt"></i>
+        <h2>Quick Add</h2>
+    </div>
+    <p>Quickly add ingredients using natural language:</p>
+    
+    <div style="display: flex; gap: 0.5rem;">
+        <input type="text" id="quick-add-input" class="form-input" 
+               placeholder="e.g., '2 kg tomatoes', '500g rice', '10 eggs'" style="flex: 1;">
+        <button id="quick-add-btn" class="btn btn-secondary">
+            <i class="fas fa-plus"></i> Add
+        </button>
+    </div>
+    <small style="color: var(--gray-light); display: block; margin-top: 0.5rem;">
+        <i class="fas fa-info-circle"></i> Format: "quantity unit ingredient" (e.g., "2 kg tomatoes")
+    </small>
+</div>
+{% endblock %}
