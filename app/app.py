@@ -19,7 +19,7 @@ app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HT
 CORS(app, supports_credentials=True)
 
 # ---------------- CONFIGURATION ---------------- #
-FIREBASE_CONFIG_PATH = r"C:\Users\SANIYA GUPTA\OneDrive\7th sem\MEAL PLANNER\firebase_key.json"
+FIREBASE_CONFIG_PATH = r"C:\Users\SANIYA GUPTA\OneDrive\7th sem\MEAL PLANNER\cooking_healper\app\mock_firebase.json"
 GROQ_API_KEY = "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"
 
 # ---------------- FIREBASE INIT ---------------- #
