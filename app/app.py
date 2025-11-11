@@ -12,11 +12,15 @@ import random
 
 app = Flask(__name__)
 app.secret_key = 'ai-meal-planner-secret-key-2024'  # Change this in production
-CORS(app)
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+CORS(app, supports_credentials=True)
 
 # ---------------- CONFIGURATION ---------------- #
 FIREBASE_CONFIG_PATH = r"C:\Users\SANIYA GUPTA\OneDrive\7th sem\MEAL PLANNER\firebase_key.json"
-GROQ_API_KEY = "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"
+GROQ_API_KEY = "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"
 
 # ---------------- FIREBASE INIT ---------------- #
 try:
@@ -48,6 +52,9 @@ def hash_password(password: str) -> str:
 
 def validate_password(password: str) -> bool:
     return len(password) >= 6
+
+def validate_username(username: str) -> bool:
+    return len(username) >= 3 and bool(re.match(r'^[a-zA-Z0-9_.-]+$', username))
 
 def clean_name_for_id(name: str) -> str:
     if not name:
@@ -100,6 +107,99 @@ def parse_ingredient_input(user_input: str):
         print(f"Error parsing ingredient: {e}")
         return user_input, 1.0, "units"
 
+# ---------------- DEBUG ROUTES ---------------- #
+@app.route('/debug/check-user/<username>')
+def debug_check_user(username):
+    """Check if a specific user exists and verify password hash"""
+    try:
+        user_ref = db.collection("users").document(username)
+        user = user_ref.get()
+        
+        if user.exists:
+            user_data = user.to_dict()
+            return jsonify({
+                'exists': True,
+                'username': username,
+                'has_password': 'password' in user_data,
+                'password_length': len(user_data.get('password', '')),
+                'diet_type': user_data.get('diet_type'),
+                'stored_password_hash': user_data.get('password')[:20] + '...' if user_data.get('password') else None
+            })
+        else:
+            return jsonify({'exists': False, 'username': username})
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/debug/test-hash/<password>')
+def debug_test_hash(password):
+    """Test password hashing"""
+    hashed = hash_password(password)
+    return jsonify({
+        'original': password,
+        'hashed': hashed,
+        'hashed_first_20': hashed[:20] + '...'
+    })
+
+@app.route('/debug/create-test-user')
+def create_test_user():
+    """Temporary route to create a test user"""
+    try:
+        test_username = "testuser"
+        test_password = "test123"
+        
+        user_ref = db.collection("users").document(test_username)
+        if user_ref.get().exists:
+            return jsonify({'success': False, 'message': 'Test user already exists'})
+        
+        user_data = {
+            "password": hash_password(test_password),
+            "diet_type": "Pure Veg",
+            "dietary_restrictions": [],
+            "preferred_cuisines": ["Indian"],
+            "cooking_skill": "beginner",
+            "created_at": datetime.now().isoformat(),
+            "last_login": datetime.now().isoformat()
+        }
+        
+        user_ref.set(user_data)
+        return jsonify({
+            'success': True, 
+            'message': 'Test user created',
+            'username': test_username,
+            'password': test_password
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)})
+@app.route('/debug/users')
+def debug_users():
+    """Temporary route to check existing users"""
+    try:
+        users_ref = db.collection("users")
+        users = []
+        for doc in users_ref.stream():
+            user_data = doc.to_dict()
+            users.append({
+                'username': doc.id,
+                'diet_type': user_data.get('diet_type'),
+                'has_password': 'password' in user_data,
+                'created_at': user_data.get('created_at')
+            })
+        return jsonify({
+            'total_users': len(users),
+            'users': users
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/debug/session')
+def debug_session():
+    return jsonify({
+        'session_exists': 'user' in session,
+        'session_data': dict(session) if 'user' in session else 'No session data',
+        'headers': {k: v for k, v in request.headers if k.lower() == 'cookie'}
+    })
+
 # ---------------- AUTHENTICATION ROUTES ---------------- #
 @app.route('/')
 def index():
@@ -114,6 +214,8 @@ def login():
         username = data.get('username', '').strip()
         password = data.get('password', '')
         
+        print(f"🔐 Login attempt for username: {username}")  # Debug
+        
         if not username or not password:
             return jsonify({'success': False, 'message': 'Username and password are required'})
         
@@ -124,12 +226,23 @@ def login():
             if user.exists:
                 user_data = user.to_dict()
                 if user_data.get("password") == hash_password(password):
+                    # Update last login
+                    user_ref.update({"last_login": datetime.now().isoformat()})
+                    
+                    # Create session with user data
+                    session.permanent = True
                     session['user'] = {
                         'username': username,
-                        **user_data
+                        'diet_type': user_data.get('diet_type'),
+                        'dietary_restrictions': user_data.get('dietary_restrictions', []),
+                        'preferred_cuisines': user_data.get('preferred_cuisines', []),
+                        'cooking_skill': user_data.get('cooking_skill')
                     }
+                    
+                    print(f"✅ Login successful for user: {username}")  # Debug
                     return jsonify({'success': True, 'message': 'Login successful'})
             
+            print(f"❌ Login failed for user: {username}")  # Debug
             return jsonify({'success': False, 'message': 'Invalid username or password'})
             
         except Exception as e:
@@ -149,19 +262,35 @@ def register():
         preferred_cuisines = data.get('preferred_cuisines', [])
         cooking_skill = data.get('cooking_skill', 'beginner')
         
+        print(f"📝 Registration attempt for username: '{username}'")  # Debug
+        print(f"📝 Password: '{password}' (length: {len(password)})")  # Debug
+        print(f"📝 Diet type: {diet_type}")  # Debug
+        print(f"📝 Full data received: {data}")  # Debug
+        
         try:
             if not username or not password:
+                print("❌ Missing username or password")  # Debug
                 return jsonify({'success': False, 'message': 'Username and password are required'})
             
+            if not validate_username(username):
+                print(f"❌ Invalid username: {username}")  # Debug
+                return jsonify({'success': False, 'message': 'Username must be at least 3 characters and contain only letters, numbers, dots, hyphens, or underscores'})
+            
             if not validate_password(password):
+                print(f"❌ Invalid password length: {len(password)}")  # Debug
                 return jsonify({'success': False, 'message': 'Password must be at least 6 characters long'})
             
             user_ref = db.collection("users").document(username)
-            if user_ref.get().exists:
+            existing_user = user_ref.get()
+            
+            if existing_user.exists:
+                print(f"❌ Username '{username}' already exists")  # Debug
                 return jsonify({'success': False, 'message': 'Username already exists'})
             
+            # Create user data
+            hashed_password = hash_password(password)
             user_data = {
-                "password": hash_password(password),
+                "password": hashed_password,
                 "diet_type": diet_type,
                 "dietary_restrictions": dietary_restrictions,
                 "preferred_cuisines": preferred_cuisines,
@@ -170,18 +299,39 @@ def register():
                 "last_login": datetime.now().isoformat()
             }
             
+            print(f"📝 Creating user with data: {user_data}")  # Debug
+            print(f"📝 Password hash: {hashed_password[:20]}...")  # Debug
+            
+            # Save to Firebase
             user_ref.set(user_data)
+            print(f"✅ User '{username}' registered successfully")  # Debug
+            
+            # Auto-login after registration
+            session.permanent = True
+            session['user'] = {
+                'username': username,
+                'diet_type': diet_type,
+                'dietary_restrictions': dietary_restrictions,
+                'preferred_cuisines': preferred_cuisines,
+                'cooking_skill': cooking_skill
+            }
+            
+            print(f"✅ Session created for user: {username}")  # Debug
+            print(f"✅ Session data: {session['user']}")  # Debug
             
             return jsonify({'success': True, 'message': 'Registration successful'})
             
         except Exception as e:
-            print(f"Registration error: {e}")
-            return jsonify({'success': False, 'message': 'Registration failed. Please try again.'})
+            print(f"❌ Registration error: {e}")  # Debug
+            import traceback
+            print(f"❌ Full traceback: {traceback.format_exc()}")  # Debug
+            return jsonify({'success': False, 'message': f'Registration failed: {str(e)}'})
     
     return render_template('register.html')
-
 @app.route('/logout')
 def logout():
+    if 'user' in session:
+        print(f"👋 User {session['user']['username']} logged out")  # Debug
     session.pop('user', None)
     return redirect(url_for('index'))
 
@@ -189,7 +339,9 @@ def logout():
 @app.route('/dashboard')
 def dashboard():
     if 'user' not in session:
+        print("❌ No user in session, redirecting to login")  # Debug
         return redirect(url_for('login'))
+    print(f"✅ User {session['user']['username']} accessing dashboard")  # Debug
     return render_template('dashboard.html')
 
 @app.route('/pantry')
@@ -223,8 +375,6 @@ def get_user():
         return jsonify({'error': 'Not authenticated'}), 401
     
     user_data = session['user'].copy()
-    # Remove sensitive data
-    user_data.pop('password', None)
     return jsonify(user_data)
 
 @app.route('/api/dashboard/stats')

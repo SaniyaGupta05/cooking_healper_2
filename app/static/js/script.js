@@ -35,6 +35,53 @@ function showAlert(message, type = 'success') {
     }, 5000);
 }
 
+// Enhanced fetch with auth handling
+async function authFetch(url, options = {}) {
+    const response = await fetch(url, {
+        ...options,
+        credentials: 'include'
+    });
+    
+    if (response.status === 401) {
+        // Not authenticated, redirect to login
+        console.log('Authentication required, redirecting to login');
+        window.location.href = '/login';
+        throw new Error('Not authenticated');
+    }
+    
+    return response;
+}
+
+// Check authentication on page load for protected routes
+async function checkAuthentication() {
+    const protectedRoutes = ['/dashboard', '/pantry', '/suggestions', '/mealplan', '/cooking'];
+    const currentPath = window.location.pathname;
+    
+    if (protectedRoutes.includes(currentPath)) {
+        try {
+            const response = await fetch('/api/user', {
+                credentials: 'include'
+            });
+            if (response.status === 401) {
+                console.log('User not authenticated, redirecting to login');
+                window.location.href = '/login';
+                return false;
+            }
+            const userData = await response.json();
+            if (userData.error) {
+                window.location.href = '/login';
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.log('Authentication check failed, redirecting to login');
+            window.location.href = '/login';
+            return false;
+        }
+    }
+    return true;
+}
+
 // Auth functions
 async function loginUser(username, password) {
     const button = document.querySelector('#login-form button[type="submit"]');
@@ -46,7 +93,8 @@ async function loginUser(username, password) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ username, password }),
+            credentials: 'include'
         });
         
         const data = await response.json();
@@ -76,16 +124,17 @@ async function registerUser(userData) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(userData)
+            body: JSON.stringify(userData),
+            credentials: 'include'
         });
         
         const data = await response.json();
         
         if (data.success) {
-            showAlert('Registration successful! Redirecting to login...', 'success');
+            showAlert('Registration successful! Redirecting to dashboard...', 'success');
             setTimeout(() => {
-                window.location.href = '/login';
-            }, 2000);
+                window.location.href = '/dashboard';
+            }, 1000);
         } else {
             showAlert(data.message, 'error');
         }
@@ -99,7 +148,7 @@ async function registerUser(userData) {
 // Pantry management
 async function loadPantry() {
     try {
-        const response = await fetch('/api/pantry/ingredients');
+        const response = await authFetch('/api/pantry/ingredients');
         if (!response.ok) {
             throw new Error('Failed to fetch pantry items');
         }
@@ -136,6 +185,7 @@ async function loadPantry() {
         `).join('');
         
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         console.error('Error loading pantry:', error);
         const container = document.getElementById('pantry-items');
         if (container) {
@@ -149,7 +199,7 @@ async function addIngredient(ingredientData) {
     const originalText = showLoading(button);
     
     try {
-        const response = await fetch('/api/pantry/ingredients', {
+        const response = await authFetch('/api/pantry/ingredients', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -167,6 +217,7 @@ async function addIngredient(ingredientData) {
             showAlert(data.error || 'Failed to add ingredient', 'error');
         }
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         showAlert('Failed to add ingredient: ' + error.message, 'error');
     } finally {
         hideLoading(button, originalText);
@@ -177,7 +228,7 @@ async function deleteIngredient(ingredientId) {
     if (!confirm('Are you sure you want to delete this ingredient?')) return;
     
     try {
-        const response = await fetch(`/api/pantry/ingredients?id=${encodeURIComponent(ingredientId)}`, {
+        const response = await authFetch(`/api/pantry/ingredients?id=${encodeURIComponent(ingredientId)}`, {
             method: 'DELETE'
         });
         
@@ -190,6 +241,7 @@ async function deleteIngredient(ingredientId) {
             showAlert(data.error || 'Failed to delete ingredient', 'error');
         }
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         showAlert('Failed to delete ingredient: ' + error.message, 'error');
     }
 }
@@ -205,7 +257,7 @@ async function quickAddIngredient() {
     }
     
     try {
-        const response = await fetch('/api/parse-ingredient', {
+        const response = await authFetch('/api/parse-ingredient', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -228,6 +280,7 @@ async function quickAddIngredient() {
             showAlert('Could not parse ingredient. Please use format: "2 kg tomatoes"', 'error');
         }
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         showAlert('Failed to parse ingredient: ' + error.message, 'error');
     }
 }
@@ -238,7 +291,7 @@ async function getSuggestions(filters = {}) {
     const originalText = showLoading(button);
     
     try {
-        const response = await fetch('/api/suggestions', {
+        const response = await authFetch('/api/suggestions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -257,6 +310,7 @@ async function getSuggestions(filters = {}) {
             showAlert('No suggestions available', 'warning');
         }
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         showAlert('Failed to get suggestions: ' + error.message, 'error');
     } finally {
         hideLoading(button, originalText);
@@ -278,7 +332,7 @@ async function generateMealPlan() {
     const originalText = showLoading(button);
     
     try {
-        const response = await fetch('/api/mealplan', {
+        const response = await authFetch('/api/mealplan', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -297,6 +351,7 @@ async function generateMealPlan() {
             showAlert('Failed to generate meal plan', 'error');
         }
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         showAlert('Failed to generate meal plan: ' + error.message, 'error');
     } finally {
         hideLoading(button, originalText);
@@ -314,7 +369,7 @@ async function searchRecipe() {
     const originalText = showLoading(button);
     
     try {
-        const response = await fetch('/api/suggestions', {
+        const response = await authFetch('/api/suggestions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -335,6 +390,7 @@ async function searchRecipe() {
             showAlert('No recipe found', 'warning');
         }
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         showAlert('Search failed: ' + error.message, 'error');
     } finally {
         hideLoading(button, originalText);
@@ -344,10 +400,12 @@ async function searchRecipe() {
 // Dashboard functions
 async function initDashboard() {
     try {
-        const response = await fetch('/api/user');
+        const response = await authFetch('/api/user');
+        
         if (!response.ok) {
             throw new Error('Failed to fetch user data');
         }
+        
         const user = await response.json();
         
         if (user.error) {
@@ -371,13 +429,14 @@ async function initDashboard() {
         await loadPantryOverview();
         
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         console.error('Failed to initialize dashboard:', error);
     }
 }
 
 async function loadDashboardStats() {
     try {
-        const response = await fetch('/api/dashboard/stats');
+        const response = await authFetch('/api/dashboard/stats');
         if (!response.ok) {
             throw new Error('Failed to fetch dashboard stats');
         }
@@ -394,13 +453,14 @@ async function loadDashboardStats() {
         document.getElementById('days-streak').textContent = stats.days_streak || 0;
         
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         console.error('Error loading dashboard stats:', error);
     }
 }
 
 async function loadPantryOverview() {
     try {
-        const response = await fetch('/api/pantry/ingredients');
+        const response = await authFetch('/api/pantry/ingredients');
         const ingredients = await response.json();
         
         if (ingredients.error) {
@@ -421,6 +481,7 @@ async function loadPantryOverview() {
         }
         
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         console.error('Error loading pantry overview:', error);
     }
 }
@@ -437,7 +498,7 @@ async function startCooking() {
     const originalText = showLoading(button);
     
     try {
-        const response = await fetch('/api/suggestions', {
+        const response = await authFetch('/api/suggestions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -478,14 +539,57 @@ async function startCooking() {
             showAlert('Could not generate cooking instructions', 'error');
         }
     } catch (error) {
+        if (error.message === 'Not authenticated') return;
         showAlert('Failed to start cooking: ' + error.message, 'error');
     } finally {
         hideLoading(button, originalText);
     }
 }
 
+// Temporary debug function
+async function debugAuth() {
+    try {
+        console.log('Testing authentication...');
+        const response = await fetch('/api/user', { credentials: 'include' });
+        console.log('API User Response Status:', response.status);
+        const data = await response.json();
+        console.log('API User Data:', data);
+        
+        // Test session
+        try {
+            const sessionResponse = await fetch('/debug/session', { credentials: 'include' });
+            const sessionData = await sessionResponse.json();
+            console.log('Session Data:', sessionData);
+        } catch (e) {
+            console.log('Session debug endpoint not available');
+        }
+        
+        // Test users
+        try {
+            const usersResponse = await fetch('/debug/users', { credentials: 'include' });
+            const usersData = await usersResponse.json();
+            console.log('Users Data:', usersData);
+        } catch (e) {
+            console.log('Users debug endpoint not available');
+        }
+    } catch (error) {
+        console.error('Debug auth error:', error);
+    }
+}
+
 // Event listeners
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('DOM loaded, checking authentication...');
+    
+    // Check authentication first for protected pages
+    const isAuthenticated = await checkAuthentication();
+    if (!isAuthenticated) {
+        console.log('Authentication failed, stopping initialization');
+        return;
+    }
+    
+    console.log('Authentication successful, initializing page...');
+    
     // Auth forms
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
@@ -594,19 +698,22 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize dashboard if on dashboard page
     if (window.location.pathname === '/dashboard' || window.location.pathname === '/') {
+        console.log('Initializing dashboard...');
         initDashboard();
     }
     
     // Load pantry if on pantry page
     if (window.location.pathname === '/pantry') {
+        console.log('Loading pantry...');
         loadPantry();
     }
     
     // Auto-load suggestions if on suggestions page
     if (window.location.pathname === '/suggestions') {
-        // Optional: auto-load some suggestions
-        // getSuggestions();
+        console.log('On suggestions page, ready for requests...');
     }
+    
+    console.log('Page initialization complete');
 });
 
 // Global function for HTML onclick
@@ -614,3 +721,4 @@ window.quickAddIngredient = quickAddIngredient;
 window.searchRecipe = searchRecipe;
 window.startCooking = startCooking;
 window.deleteIngredient = deleteIngredient;
+window.debugAuth = debugAuth;
