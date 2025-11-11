@@ -37,6 +37,7 @@ jobs:
         python -c "import flask; print('Flask import successful')"
         python -c "import groq; print('Groq import successful')"
         python -c "import firebase_admin; print('Firebase import successful')"
+        python -c "from app.app import ap; print('App module import successful')"
         echo "All Python imports successful"
 
     - name: Test basic app functionality
