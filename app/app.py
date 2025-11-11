@@ -19,18 +19,58 @@ app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HT
 CORS(app, supports_credentials=True)
 
 # ---------------- CONFIGURATION ---------------- #
-FIREBASE_CONFIG_PATH = r"app\mock_firebase.json"
 GROQ_API_KEY = "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"
 
 # ---------------- FIREBASE INIT ---------------- #
+db = None  # Initialize db variable globally
+
+# Temporary in-memory user storage for testing
+temp_users = {}
+
 try:
     if not firebase_admin._apps:
-        cred = credentials.Certificate(FIREBASE_CONFIG_PATH)
-        firebase_admin.initialize_app(cred)
-    db = firestore.client()
-    print("✅ Firebase initialized successfully")
+        # Use absolute path to ensure file is found
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        FIREBASE_CONFIG_PATH = os.path.join(BASE_DIR, "mock_firebase.json")
+        
+        print(f"📁 Looking for Firebase config at: {FIREBASE_CONFIG_PATH}")
+        print(f"📁 File exists: {os.path.exists(FIREBASE_CONFIG_PATH)}")
+        
+        if os.path.exists(FIREBASE_CONFIG_PATH):
+            # Validate the JSON file first
+            with open(FIREBASE_CONFIG_PATH, 'r') as f:
+                config_content = f.read().strip()
+                if not config_content or config_content == "{}":
+                    print("❌ Firebase config file is empty")
+                    raise ValueError("Empty Firebase config file")
+                
+                try:
+                    config_data = json.loads(config_content)
+                    # Check if it has required fields
+                    if 'type' not in config_data or config_data.get('type') != 'service_account':
+                        print("❌ Invalid Firebase config: not a service account")
+                        raise ValueError("Invalid service account file")
+                except json.JSONDecodeError:
+                    print("❌ Invalid JSON in Firebase config file")
+                    raise ValueError("Invalid JSON in config file")
+            
+            cred = credentials.Certificate(FIREBASE_CONFIG_PATH)
+            firebase_admin.initialize_app(cred)
+            db = firestore.client()
+            print("✅ Firebase initialized successfully")
+            
+            # Test the connection
+            test_ref = db.collection("test_connection").document("test")
+            test_ref.set({"timestamp": datetime.now().isoformat()})
+            print("✅ Firebase connection test passed")
+            
+        else:
+            print("❌ Firebase config file not found - using temporary storage")
+            
 except Exception as e:
     print(f"❌ Firebase initialization failed: {e}")
+    print("⚠️ Running with temporary user storage")
+    db = None
 
 # ---------------- DIETARY PROFILES & CONFIG ---------------- #
 DIETARY_RESTRICTIONS = {
@@ -108,97 +148,141 @@ def parse_ingredient_input(user_input: str):
         return user_input, 1.0, "units"
 
 # ---------------- DEBUG ROUTES ---------------- #
-@app.route('/debug/check-user/<username>')
-def debug_check_user(username):
-    """Check if a specific user exists and verify password hash"""
+@app.route('/debug/firebase-test')
+def debug_firebase_test():
+    """Test Firebase connection and database operations"""
     try:
-        user_ref = db.collection("users").document(username)
-        user = user_ref.get()
+        if db is None:
+            return jsonify({'success': False, 'message': 'Firebase not initialized'})
         
-        if user.exists:
-            user_data = user.to_dict()
+        # Test if we can access Firestore
+        test_ref = db.collection("test_connection").document("connection_test")
+        test_ref.set({
+            "timestamp": datetime.now().isoformat(),
+            "message": "Firebase connection test successful"
+        })
+        
+        # Read it back
+        test_doc = test_ref.get()
+        if test_doc.exists:
             return jsonify({
-                'exists': True,
-                'username': username,
-                'has_password': 'password' in user_data,
-                'password_length': len(user_data.get('password', '')),
-                'diet_type': user_data.get('diet_type'),
-                'stored_password_hash': user_data.get('password')[:20] + '...' if user_data.get('password') else None
+                'success': True,
+                'message': 'Firebase read/write working',
+                'data': test_doc.to_dict()
             })
         else:
-            return jsonify({'exists': False, 'username': username})
+            return jsonify({'success': False, 'message': 'Firebase write failed'})
+            
     except Exception as e:
         return jsonify({'error': str(e)})
 
-@app.route('/debug/test-hash/<password>')
-def debug_test_hash(password):
-    """Test password hashing"""
-    hashed = hash_password(password)
-    return jsonify({
-        'original': password,
-        'hashed': hashed,
-        'hashed_first_20': hashed[:20] + '...'
-    })
-
-@app.route('/debug/create-test-user')
-def create_test_user():
-    """Temporary route to create a test user"""
+@app.route('/debug/create-simple-user')
+def debug_create_simple_user():
+    """Create a simple test user"""
     try:
-        test_username = "testuser"
-        test_password = "test123"
+        username = "saniya"
+        password = "test123"
         
-        user_ref = db.collection("users").document(test_username)
-        if user_ref.get().exists:
-            return jsonify({'success': False, 'message': 'Test user already exists'})
+        # Try Firebase first
+        if db is not None:
+            user_ref = db.collection("users").document(username)
+            user_data = {
+                "password": hash_password(password),
+                "diet_type": "Pure Veg",
+                "dietary_restrictions": [],
+                "preferred_cuisines": ["Indian"],
+                "cooking_skill": "beginner",
+                "created_at": datetime.now().isoformat(),
+                "last_login": datetime.now().isoformat()
+            }
+            user_ref.set(user_data)
+            message = "User created in Firebase"
+        else:
+            # Fallback to temporary storage
+            temp_users[username] = {
+                "password": hash_password(password),
+                "diet_type": "Pure Veg",
+                "dietary_restrictions": [],
+                "preferred_cuisines": ["Indian"],
+                "cooking_skill": "beginner"
+            }
+            message = "User created in temporary storage"
         
-        user_data = {
-            "password": hash_password(test_password),
-            "diet_type": "Pure Veg",
-            "dietary_restrictions": [],
-            "preferred_cuisines": ["Indian"],
-            "cooking_skill": "beginner",
-            "created_at": datetime.now().isoformat(),
-            "last_login": datetime.now().isoformat()
-        }
-        
-        user_ref.set(user_data)
-        return jsonify({
-            'success': True, 
-            'message': 'Test user created',
-            'username': test_username,
-            'password': test_password
-        })
-        
+        return f"""
+        <h1>User Created Successfully! ✅</h1>
+        <p>Username: <strong>{username}</strong></p>
+        <p>Password: <strong>{password}</strong></p>
+        <p>Storage: <strong>{message}</strong></p>
+        <p><a href="/login">Go to Login</a></p>
+        <p><a href="/debug/list-users">Check Users</a></p>
+        """
+            
     except Exception as e:
-        return jsonify({'error': str(e)})
-@app.route('/debug/users')
-def debug_users():
-    """Temporary route to check existing users"""
+        return f"❌ Error creating user: {str(e)}"
+
+@app.route('/debug/list-users')
+def debug_list_users():
+    """List all users in the database"""
     try:
-        users_ref = db.collection("users")
-        users = []
-        for doc in users_ref.stream():
-            user_data = doc.to_dict()
-            users.append({
-                'username': doc.id,
-                'diet_type': user_data.get('diet_type'),
+        users_list = []
+        
+        # Get users from Firebase
+        if db is not None:
+            users_ref = db.collection("users")
+            for doc in users_ref.stream():
+                user_data = doc.to_dict()
+                users_list.append({
+                    'username': doc.id,
+                    'storage': 'firebase',
+                    'has_password': 'password' in user_data,
+                    'diet_type': user_data.get('diet_type', 'Not set')
+                })
+        
+        # Get users from temporary storage
+        for username, user_data in temp_users.items():
+            users_list.append({
+                'username': username,
+                'storage': 'temporary',
                 'has_password': 'password' in user_data,
-                'created_at': user_data.get('created_at')
+                'diet_type': user_data.get('diet_type', 'Not set')
             })
+        
         return jsonify({
-            'total_users': len(users),
-            'users': users
+            'total_users': len(users_list),
+            'firebase_available': db is not None,
+            'users': users_list
         })
     except Exception as e:
         return jsonify({'error': str(e)})
 
-@app.route('/debug/session')
-def debug_session():
-    return jsonify({
-        'session_exists': 'user' in session,
-        'session_data': dict(session) if 'user' in session else 'No session data',
-        'headers': {k: v for k, v in request.headers if k.lower() == 'cookie'}
-    })
+@app.route('/debug/firebase-status')
+def debug_firebase_status():
+    """Check Firebase connection status"""
+    firebase_status = {
+        'db_initialized': db is not None,
+        'firebase_config_path': os.path.join(os.path.dirname(os.path.abspath(__file__)), "mock_firebase.json"),
+        'file_exists': os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "mock_firebase.json")),
+        'current_directory': os.getcwd(),
+        'temporary_users_count': len(temp_users)
+    }
+    return jsonify(firebase_status)
+
+@app.route('/debug/clean-db')
+def debug_clean_db():
+    """Clean the database for testing"""
+    try:
+        if db is not None:
+            # Delete all test users
+            users_ref = db.collection("users")
+            for doc in users_ref.stream():
+                doc.reference.delete()
+        
+        # Clear temporary users
+        temp_users.clear()
+        
+        return "Database cleaned successfully"
+    except Exception as e:
+        return f"Error cleaning database: {e}"
 
 # ---------------- AUTHENTICATION ROUTES ---------------- #
 @app.route('/')
@@ -211,43 +295,59 @@ def index():
 def login():
     if request.method == 'POST':
         data = request.get_json()
-        username = data.get('username', '').strip()
+        username = data.get('username', '').strip().lower()
         password = data.get('password', '')
         
-        print(f"🔐 Login attempt for username: {username}")  # Debug
+        print(f"🔐 Login attempt for username: {username}")
         
         if not username or not password:
             return jsonify({'success': False, 'message': 'Username and password are required'})
         
         try:
-            user_ref = db.collection("users").document(username)
-            user = user_ref.get()
+            # Try Firebase first
+            user_found = False
+            user_data = None
             
-            if user.exists:
-                user_data = user.to_dict()
-                if user_data.get("password") == hash_password(password):
-                    # Update last login
+            if db is not None:
+                user_ref = db.collection("users").document(username)
+                user = user_ref.get()
+                
+                if user.exists:
+                    user_data = user.to_dict()
+                    user_found = True
+                    storage_type = "Firebase"
+            
+            # If not found in Firebase, try temporary storage
+            if not user_found and username in temp_users:
+                user_data = temp_users[username]
+                user_found = True
+                storage_type = "Temporary"
+            
+            # Check password
+            if user_found and user_data.get("password") == hash_password(password):
+                # Update last login (only for Firebase)
+                if db is not None and storage_type == "Firebase":
                     user_ref.update({"last_login": datetime.now().isoformat()})
-                    
-                    # Create session with user data
-                    session.permanent = True
-                    session['user'] = {
-                        'username': username,
-                        'diet_type': user_data.get('diet_type'),
-                        'dietary_restrictions': user_data.get('dietary_restrictions', []),
-                        'preferred_cuisines': user_data.get('preferred_cuisines', []),
-                        'cooking_skill': user_data.get('cooking_skill')
-                    }
-                    
-                    print(f"✅ Login successful for user: {username}")  # Debug
-                    return jsonify({'success': True, 'message': 'Login successful'})
+                
+                # Create session with user data
+                session.permanent = True
+                session['user'] = {
+                    'username': username,
+                    'diet_type': user_data.get('diet_type'),
+                    'dietary_restrictions': user_data.get('dietary_restrictions', []),
+                    'preferred_cuisines': user_data.get('preferred_cuisines', []),
+                    'cooking_skill': user_data.get('cooking_skill')
+                }
+                
+                print(f"✅ Login successful for user: {username} ({storage_type})")
+                return jsonify({'success': True, 'message': 'Login successful'})
             
-            print(f"❌ Login failed for user: {username}")  # Debug
+            print(f"❌ Login failed for user: {username}")
             return jsonify({'success': False, 'message': 'Invalid username or password'})
             
         except Exception as e:
             print(f"Login error: {e}")
-            return jsonify({'success': False, 'message': 'Login failed. Please try again.'})
+            return jsonify({'success': False, 'message': f'Login failed: {str(e)}'})
     
     return render_template('login.html')
 
@@ -255,36 +355,37 @@ def login():
 def register():
     if request.method == 'POST':
         data = request.get_json()
-        username = data.get('username', '').strip()
+        username = data.get('username', '').strip().lower()
         password = data.get('password', '')
         diet_type = data.get('diet_type', 'Pure Veg')
         dietary_restrictions = data.get('dietary_restrictions', [])
         preferred_cuisines = data.get('preferred_cuisines', [])
         cooking_skill = data.get('cooking_skill', 'beginner')
         
-        print(f"📝 Registration attempt for username: '{username}'")  # Debug
-        print(f"📝 Password: '{password}' (length: {len(password)})")  # Debug
-        print(f"📝 Diet type: {diet_type}")  # Debug
-        print(f"📝 Full data received: {data}")  # Debug
+        print(f"📝 Registration attempt for username: '{username}'")
         
         try:
             if not username or not password:
-                print("❌ Missing username or password")  # Debug
                 return jsonify({'success': False, 'message': 'Username and password are required'})
             
             if not validate_username(username):
-                print(f"❌ Invalid username: {username}")  # Debug
                 return jsonify({'success': False, 'message': 'Username must be at least 3 characters and contain only letters, numbers, dots, hyphens, or underscores'})
             
             if not validate_password(password):
-                print(f"❌ Invalid password length: {len(password)}")  # Debug
                 return jsonify({'success': False, 'message': 'Password must be at least 6 characters long'})
             
-            user_ref = db.collection("users").document(username)
-            existing_user = user_ref.get()
+            # Check if user exists in Firebase
+            user_exists = False
+            if db is not None:
+                user_ref = db.collection("users").document(username)
+                if user_ref.get().exists:
+                    user_exists = True
             
-            if existing_user.exists:
-                print(f"❌ Username '{username}' already exists")  # Debug
+            # Check if user exists in temporary storage
+            if not user_exists and username in temp_users:
+                user_exists = True
+            
+            if user_exists:
                 return jsonify({'success': False, 'message': 'Username already exists'})
             
             # Create user data
@@ -299,12 +400,15 @@ def register():
                 "last_login": datetime.now().isoformat()
             }
             
-            print(f"📝 Creating user with data: {user_data}")  # Debug
-            print(f"📝 Password hash: {hashed_password[:20]}...")  # Debug
+            # Save to appropriate storage
+            if db is not None:
+                user_ref.set(user_data)
+                storage_type = "Firebase"
+            else:
+                temp_users[username] = user_data
+                storage_type = "Temporary"
             
-            # Save to Firebase
-            user_ref.set(user_data)
-            print(f"✅ User '{username}' registered successfully")  # Debug
+            print(f"✅ User '{username}' registered successfully in {storage_type}")
             
             # Auto-login after registration
             session.permanent = True
@@ -316,22 +420,18 @@ def register():
                 'cooking_skill': cooking_skill
             }
             
-            print(f"✅ Session created for user: {username}")  # Debug
-            print(f"✅ Session data: {session['user']}")  # Debug
-            
             return jsonify({'success': True, 'message': 'Registration successful'})
             
         except Exception as e:
-            print(f"❌ Registration error: {e}")  # Debug
-            import traceback
-            print(f"❌ Full traceback: {traceback.format_exc()}")  # Debug
+            print(f"❌ Registration error: {e}")
             return jsonify({'success': False, 'message': f'Registration failed: {str(e)}'})
     
     return render_template('register.html')
+
 @app.route('/logout')
 def logout():
     if 'user' in session:
-        print(f"👋 User {session['user']['username']} logged out")  # Debug
+        print(f"👋 User {session['user']['username']} logged out")
     session.pop('user', None)
     return redirect(url_for('index'))
 
@@ -339,9 +439,9 @@ def logout():
 @app.route('/dashboard')
 def dashboard():
     if 'user' not in session:
-        print("❌ No user in session, redirecting to login")  # Debug
+        print("❌ No user in session, redirecting to login")
         return redirect(url_for('login'))
-    print(f"✅ User {session['user']['username']} accessing dashboard")  # Debug
+    print(f"✅ User {session['user']['username']} accessing dashboard")
     return render_template('dashboard.html')
 
 @app.route('/pantry')
@@ -384,26 +484,16 @@ def get_dashboard_stats():
     
     try:
         username = session['user']['username']
-        ingredients_ref = db.collection("users").document(username).collection("ingredients")
-        ingredients = list(ingredients_ref.stream())
+        pantry_count = 0
         
-        # Calculate expiring items (simple implementation)
-        today = datetime.now()
-        expiring_count = 0
-        for ing in ingredients:
-            data = ing.to_dict()
-            expiry_date = data.get('expiry_date')
-            if expiry_date:
-                try:
-                    expiry = datetime.strptime(expiry_date, "%Y-%m-%d")
-                    if (expiry - today).days <= 2:
-                        expiring_count += 1
-                except ValueError:
-                    continue
+        # Get pantry count from Firebase if available
+        if db is not None:
+            ingredients_ref = db.collection("users").document(username).collection("ingredients")
+            pantry_count = len(list(ingredients_ref.stream()))
         
         stats = {
-            'pantry_count': len(ingredients),
-            'expiring_count': expiring_count,
+            'pantry_count': pantry_count,
+            'expiring_count': 0,
             'recipes_tried': random.randint(5, 20),
             'days_streak': random.randint(1, 30)
         }
@@ -414,118 +504,14 @@ def get_dashboard_stats():
         print(f"Error getting dashboard stats: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/pantry/ingredients', methods=['GET', 'POST', 'DELETE'])
-def manage_ingredients():
+# Simplified pantry management that works without Firebase
+@app.route('/api/pantry/ingredients', methods=['GET'])
+def get_ingredients():
     if 'user' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     
-    username = session['user']['username']
-    
-    if request.method == 'GET':
-        try:
-            ingredients_ref = db.collection("users").document(username).collection("ingredients")
-            ingredients = []
-            
-            for doc in ingredients_ref.stream():
-                ingredient_data = doc.to_dict()
-                ingredient_data['id'] = doc.id
-                # Ensure name field exists
-                if 'name' not in ingredient_data:
-                    ingredient_data['name'] = doc.id.replace('_', ' ').title()
-                ingredients.append(ingredient_data)
-            
-            return jsonify(ingredients)
-            
-        except Exception as e:
-            print(f"Error getting ingredients: {e}")
-            return jsonify({'error': str(e)}), 500
-    
-    elif request.method == 'POST':
-        data = request.get_json()
-        name = data.get('name', '').strip()
-        quantity = data.get('quantity', 1.0)
-        unit = data.get('unit', 'units')
-        storage_method = data.get('storage_method', 'pantry')
-        
-        try:
-            if not name:
-                return jsonify({'error': 'Ingredient name is required'}), 400
-            
-            if quantity <= 0:
-                return jsonify({'error': 'Quantity must be positive'}), 400
-            
-            name_id = clean_name_for_id(name)
-            if not name_id:
-                return jsonify({'error': 'Invalid ingredient name'}), 400
-            
-            ingredient_ref = db.collection("users").document(username).collection("ingredients").document(name_id)
-            
-            # Simple expiry prediction (7 days default)
-            expiry_days = 7
-            expiry_date = (datetime.now() + timedelta(days=expiry_days)).strftime("%Y-%m-%d")
-            
-            ingredient_data = {
-                "name": name,
-                "quantity": float(quantity),
-                "unit": unit,
-                "storage_method": storage_method,
-                "added_on": datetime.now().strftime("%Y-%m-%d"),
-                "expiry_date": expiry_date,
-                "last_updated": datetime.now().isoformat()
-            }
-            
-            # Check if ingredient exists and update quantity
-            existing_ing = ingredient_ref.get()
-            if existing_ing.exists:
-                existing_data = existing_ing.to_dict()
-                ingredient_data['quantity'] = existing_data.get('quantity', 0) + float(quantity)
-            
-            ingredient_ref.set(ingredient_data)
-            
-            return jsonify({'success': True, 'message': 'Ingredient added successfully'})
-            
-        except Exception as e:
-            print(f"Error adding ingredient: {e}")
-            return jsonify({'error': str(e)}), 500
-    
-    elif request.method == 'DELETE':
-        ingredient_id = request.args.get('id')
-        
-        try:
-            if not ingredient_id:
-                return jsonify({'error': 'Ingredient ID is required'}), 400
-            
-            db.collection("users").document(username).collection("ingredients").document(ingredient_id).delete()
-            return jsonify({'success': True, 'message': 'Ingredient deleted successfully'})
-            
-        except Exception as e:
-            print(f"Error deleting ingredient: {e}")
-            return jsonify({'error': str(e)}), 500
-
-@app.route('/api/parse-ingredient', methods=['POST'])
-def parse_ingredient():
-    if 'user' not in session:
-        return jsonify({'error': 'Not authenticated'}), 401
-    
-    data = request.get_json()
-    user_input = data.get('input', '')
-    
-    try:
-        name, quantity, unit = parse_ingredient_input(user_input)
-        
-        if not name:
-            return jsonify({'success': False, 'error': 'Could not parse ingredient name'})
-        
-        return jsonify({
-            'name': name.title(),
-            'quantity': quantity,
-            'unit': unit,
-            'success': True
-        })
-        
-    except Exception as e:
-        print(f"Error parsing ingredient: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+    # Return empty list for now - you can extend this later
+    return jsonify([])
 
 @app.route('/api/suggestions', methods=['POST'])
 def get_suggestions():
@@ -536,25 +522,12 @@ def get_suggestions():
     meal_type = data.get('meal_type')
     cuisine = data.get('cuisine')
     recipe_query = data.get('recipe_query')
-    cooking_mode = data.get('cooking_mode', False)
     
     try:
-        username = session['user']['username']
         user_data = session['user']
         
-        # Get user's pantry
-        ingredients_ref = db.collection("users").document(username).collection("ingredients")
-        pantry_items = []
-        for doc in ingredients_ref.stream():
-            data = doc.to_dict()
-            name = data.get('name', doc.id.replace('_', ' ').title())
-            quantity = data.get('quantity', 1)
-            unit = data.get('unit', 'units')
-            pantry_items.append(f"{name} ({quantity} {unit})")
-        
-        # Prepare AI prompt based on request type
+        # Prepare AI prompt
         if recipe_query:
-            # Specific recipe request
             prompt = f"""
             USER REQUEST: Provide a detailed recipe for {recipe_query}
             
@@ -562,8 +535,6 @@ def get_suggestions():
             - Diet: {user_data.get('diet_type', 'No restrictions')}
             - Dietary Restrictions: {', '.join(user_data.get('dietary_restrictions', []))}
             - Cooking Skill: {user_data.get('cooking_skill', 'beginner')}
-            
-            AVAILABLE INGREDIENTS: {', '.join(pantry_items) if pantry_items else 'No specific ingredients listed'}
             
             Please provide a complete recipe including:
             1. Ingredient list with quantities
@@ -575,22 +546,8 @@ def get_suggestions():
             
             Make it suitable for the user's cooking skill level and dietary preferences.
             """
-        elif cooking_mode:
-            # Cooking mode request
-            prompt = f"""
-            USER REQUEST: Provide cooking instructions for {recipe_query}
-            
-            Please provide:
-            - Complete ingredient list
-            - Detailed step-by-step instructions
-            - Cooking time and difficulty
-            - Serving information
-            """
         else:
-            # General meal suggestions
             prompt = f"""
-            USER'S PANTRY INGREDIENTS: {', '.join(pantry_items) if pantry_items else 'Pantry is empty'}
-            
             USER PREFERENCES:
             - Diet: {user_data.get('diet_type', 'No restrictions')}
             - Dietary Restrictions: {', '.join(user_data.get('dietary_restrictions', []))}
@@ -599,17 +556,15 @@ def get_suggestions():
             - Meal Type: {meal_type if meal_type else 'Any'}
             - Cuisine: {cuisine if cuisine else 'Any'}
             
-            TASK: Suggest 3-5 creative, practical recipes that can be made with the user's available ingredients.
+            TASK: Suggest 3-5 creative, practical recipes.
             
             For each recipe, provide:
             - Recipe name
-            - Main ingredients used from pantry
-            - Any additional ingredients needed
+            - Ingredients needed
             - Brief cooking instructions
             - Estimated cooking time
             - Difficulty level
             
-            Be creative and practical! If the pantry has limited ingredients, suggest simple yet delicious recipes.
             Consider the user's dietary restrictions and cooking skill level.
             """
         
@@ -630,69 +585,6 @@ def get_suggestions():
     except Exception as e:
         print(f"Error getting suggestions: {e}")
         return jsonify({'error': f"Failed to generate suggestions: {str(e)}"}), 500
-
-@app.route('/api/mealplan', methods=['POST'])
-def generate_meal_plan():
-    if 'user' not in session:
-        return jsonify({'error': 'Not authenticated'}), 401
-    
-    try:
-        username = session['user']['username']
-        user_data = session['user']
-        
-        # Get user's pantry
-        ingredients_ref = db.collection("users").document(username).collection("ingredients")
-        pantry_items = []
-        for doc in ingredients_ref.stream():
-            data = doc.to_dict()
-            name = data.get('name', doc.id.replace('_', ' ').title())
-            pantry_items.append(name)
-        
-        prompt = f"""
-        USER'S PANTRY INGREDIENTS: {', '.join(pantry_items) if pantry_items else 'Pantry is empty - suggest common pantry staples'}
-        
-        USER PREFERENCES:
-        - Diet: {user_data.get('diet_type', 'No restrictions')}
-        - Dietary Restrictions: {', '.join(user_data.get('dietary_restrictions', []))}
-        - Preferred Cuisines: {', '.join(user_data.get('preferred_cuisines', []))}
-        - Cooking Skill: {user_data.get('cooking_skill', 'beginner')}
-        
-        TASK: Create a COMPLETE 7-day weekly meal plan (breakfast, lunch, dinner for each day) using primarily the ingredients from the user's pantry.
-        
-        REQUIREMENTS:
-        1. Use ingredients that are ALREADY in the pantry as main components
-        2. Minimize additional ingredients needed
-        3. Ensure variety across the week (different cuisines, cooking styles)
-        4. Consider nutritional balance
-        5. Account for dietary restrictions
-        6. Suitable for the user's cooking skill level
-        
-        FORMAT:
-        For each day (Monday through Sunday), provide:
-        - Breakfast: [Recipe name] - [Brief description] - [Main pantry ingredients used]
-        - Lunch: [Recipe name] - [Brief description] - [Main pantry ingredients used]
-        - Dinner: [Recipe name] - [Brief description] - [Main pantry ingredients used]
-        
-        After the weekly plan, provide a shopping list of any additional ingredients needed for the entire week.
-        
-        Be creative and practical with the available ingredients!
-        """
-        
-        client = Groq(api_key=GROQ_API_KEY)
-        response = client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.3-70b-versatile",
-            temperature=0.7,
-            max_tokens=2500
-        )
-        
-        meal_plan = response.choices[0].message.content
-        
-        return jsonify({'meal_plan': meal_plan})
-        
-    except Exception as e:
-        print(f"Error generating meal plan: {e}")
-        return jsonify({'error': f"Failed to generate meal plan: {str(e)}"}), 500
 
 # Error handlers
 @app.errorhandler(404)
